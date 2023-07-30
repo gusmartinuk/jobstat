@@ -10,6 +10,7 @@ import json
 import re
 import random
 import uvicorn
+from config import DATABASE_NAME, DATABASE_USERNAME, DATABASE_PASSWORD, DATABASE_HOST
 
 app = FastAPI()
 
@@ -18,17 +19,13 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 catsArray=[]
 
-
-
 def connect_to_db():
     return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="",
-        database="reed",        
+        host=DATABASE_HOST,
+        user=DATABASE_USERNAME,
+        password=DATABASE_PASSWORD,
+        database=DATABASE_NAME,        
     )
-
-
 def get_random_job():
     db = connect_to_db()
     cursor = db.cursor(dictionary=True)  # Use dictionary cursor
