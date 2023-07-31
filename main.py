@@ -11,6 +11,8 @@ import re
 import random
 import uvicorn
 from config import DATABASE_NAME, DATABASE_USERNAME, DATABASE_PASSWORD, DATABASE_HOST
+import time
+
 
 app = FastAPI()
 
@@ -31,8 +33,8 @@ def get_random_job():
     cursor = db.cursor(dictionary=True)  # Use dictionary cursor
 
     # Construct the SQL query to select one random record from the 'jobs' table
-    #sql_query = "SELECT * FROM jobs ORDER BY RAND() LIMIT 1"
-    sql_query = "SELECT * FROM jobs where jobid=50820100"
+    sql_query = "SELECT * FROM jobs ORDER BY RAND() LIMIT 1"
+    #sql_query = "SELECT * FROM jobs where jobid=50820100"
 
     cursor.execute(sql_query)
     result = cursor.fetchone()
@@ -123,8 +125,11 @@ def findkeywords(html):
     keywords=[]
     for cat in catsArray:
         if case_insensitive_word_exists(html, cat['catvalue'])==True:            
-           keywords.append(cat)
-           html = remove_case_insensitive_word(html,cat['catvalue'])
+           removeit=cat['catvalue'] 
+           cat['catvalue']=decode_special_chars(cat['catvalue'])
+           if cat not in keywords:
+              keywords.append(cat)
+           html = remove_case_insensitive_word(html,removeit)
     return keywords
 
 @app.on_event("startup")
@@ -182,12 +187,18 @@ async def get_home(request: Request):
 
 @app.get("/keywords", response_class=HTMLResponse)
 async def keywords(request: Request):
+    start_time = time.time()
     pagename = "Keywords"
     load_categories()
     job=get_random_job()    
-    keywords=findkeywords(job['description'])        
+    keywords=findkeywords(job['description'])            
     #content = json.dumps(keywords)
-    content = json.dumps(keywords)+"<hr>"+convert_to_bootstrap_table(job)+"<hr>"+str(catsArray)
+    #content = json.dumps(keywords)+"<hr>"+convert_to_bootstrap_table(job)+"<hr>"+str(catsArray)
+    content = json.dumps(keywords)+"<hr>"+convert_to_bootstrap_table(job)+"<hr>"
+    end_time = time.time()
+    # Calculate the time taken
+    execution_time = end_time - start_time
+    content += f"Function took {execution_time:.6f} seconds to execute."    
     return templates.TemplateResponse("home.html", {"request": request, "pagename": pagename, "content": content})
 
 if __name__ == "__main__":
