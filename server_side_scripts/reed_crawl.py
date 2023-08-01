@@ -5,6 +5,7 @@ import pymysql
 import pymysql.cursors
 import math
 import os,sys
+import argparse
 
 parent_folder_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -13,18 +14,14 @@ sys.path.append(parent_folder_path)
  
 from config import *
 
-conn = pymysql.connect(
-        host=DATABASE_HOST,
-        user=DATABASE_USERNAME,
-        password=DATABASE_PASSWORD,
-        db=DATABASE_NAME,
-        charset='utf8mb4',
-        cursorclass=pymysql.cursors.DictCursor,
-        autocommit=True)
-
-cursor = conn.cursor()
-
-load_categories()
+def get_job_id_from_url(url):
+    pattern = r"/(\d+)\?"
+    # Search for the job ID in the URL
+    match = re.search(pattern, url)
+    if match:
+        job_id = match.group(1)
+        return job_id
+    return 0
 
 def get_page(purl):
     pattern = re.compile(r'/jobs/.*/(.*)\?')
@@ -198,13 +195,51 @@ def get_page(purl):
         cursor.execute(query, {'jobid': jobid, 'skillcatid':skill['catId']})
     conn.commit()
 
+
+
+conn = pymysql.connect(
+        host=DATABASE_HOST,
+        user=DATABASE_USERNAME,
+        password=DATABASE_PASSWORD,
+        db=DATABASE_NAME,
+        charset='utf8mb4',
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=True)
+
+cursor = conn.cursor()
+load_categories()
+
+parser = argparse.ArgumentParser(description="required some parameters.")
+    
+# Add arguments to the parser
+parser.add_argument("--page", type=int, default=1, help="Crawl start page")
+parser.add_argument("--endpage", type=int, default=999999, help="Crawl end page")
+parser.add_argument("--newonly", type=str,default="yes", help="yes: new pages only, no: update")
+parser.add_argument("--offset", type=str,default="", help="today, lastthreedays, lastweek, default empty (anytime) ")
+parser.add_argument("--keyword", type=str,default="developer", help="any keyword to crawl jobs, developer ")
+parser.add_argument("--statsonly", type=str,default="no", help="yes:statistic only without crawl")
+    
+# Parse the command-line arguments
+args = parser.parse_args()
+
+print(args)
+
+xurl = f'https://www.reed.co.uk/jobs/{args.keyword.replace(" ","-").strip()}-jobs?page={args.page}'
+if args.offset != '':
+    xurl += f'&dateCreatedOffSet={args.offset}'
+
+print(xurl)   
+
 #xurl = 'https://www.reed.co.uk/jobs/work-from-home-python-jobs?pageno='
 #xurl = 'https://www.reed.co.uk/jobs/python-jobs?pageno='
-xurl = 'https://www.reed.co.uk/jobs/developer-jobs?pageno='   ## full scan
+#xurl = 'https://www.reed.co.uk/jobs/developer-jobs?pageno='   ## full scan
 #xurl = 'https://www.reed.co.uk/jobs/developer-jobs?dateCreatedOffSet=lastthreedays&pageno='
 #xurl = 'https://www.reed.co.uk/jobs/developer-jobs?dateCreatedOffSet=today&pageno='
 
-page=1
+page=args.page
+skipcounter=0
+scancounter=0
+
 while True:
     if page>1:
         url=xurl+str(page)
@@ -230,23 +265,38 @@ while True:
         total_jobs=0
         print(str(e))
             
+    if args.statsonly=='yes':
+       print(f"statsonly, other parameters ignored :   Total Job Ads: {total_jobs},  Total Pages: {maxpage} ")     
+       break 
     print("*****PAGE=",page,"  ****** total jobs=",total_jobs ,"***********total pages=",maxpage)
-
+           
     pattern = re.compile(r'job-card_jobCard__body__\w+ card-body')
 
     # Find all div elements using the CSS selector with the regex pattern
     job_card_divs = soup.find_all('div', class_=lambda c: c and pattern.match(c))
-
     
     for job in job_card_divs:
         #anchor=job.find('a', class_='job-card_jobCard__blockLink__njSjS')
         job_url = job.find('a')['href']
         #print(job_url)
+        if args.newonly=='yes':
+            jobid=get_job_id_from_url(str(job_url))
+            cursor.execute("select jobid from jobs where jobid=%(jobid)s",{'jobid': jobid})       
+            result = cursor.fetchone()    
+            if result!=None:  # old ad
+               skipcounter+=1     
+               continue  # skip, the id is already in jobs table                                                     
+
         get_page(job_url)  
+        scancounter+=1
     page+=1
-    if page>maxpage:
+    if page>maxpage or page>args.endpage:
         break
 
+print("Results:")
+print(f"Total crawled ads: {scancounter}")
+print(f"Total skipped ads: {skipcounter}")
+print("parameters:",args)
 cursor.close()
 conn.close()
         
