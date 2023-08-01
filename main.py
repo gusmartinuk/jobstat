@@ -2,16 +2,14 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import mysql.connector
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import json
-import re
-import random
 import uvicorn
-from config import DATABASE_NAME, DATABASE_USERNAME, DATABASE_PASSWORD, DATABASE_HOST
+from config import *
 import time
+import random
 
 
 app = FastAPI()
@@ -19,15 +17,9 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 templates = Jinja2Templates(directory="templates")
-catsArray=[]
 
-def connect_to_db():
-    return mysql.connector.connect(
-        host=DATABASE_HOST,
-        user=DATABASE_USERNAME,
-        password=DATABASE_PASSWORD,
-        database=DATABASE_NAME,        
-    )
+
+    
 def get_random_job():
     db = connect_to_db()
     cursor = db.cursor(dictionary=True)  # Use dictionary cursor
@@ -42,95 +34,6 @@ def get_random_job():
 
     return result
 
-def encode_special_chars(xstr):
-    return xstr.replace("#","1ozo1").replace("+","2ozo2").replace("++","3ozo3")
-
-def decode_special_chars(xstr):
-    return xstr.replace("1ozo1","#").replace("2ozo2","+").replace("3ozo3","++")
-      
-
-def load_categories():
-    global catsArray
-    db = connect_to_db()
-    cursor = db.cursor(dictionary=True)  # Use dictionary cursor
-    cursor.execute("SELECT * FROM categories")
-    result = cursor.fetchall()    
-    catsArray = []
-    for row in result:
-        xrow = {
-            "catId": row['catId'],
-            "catname": row['catname'],
-            "catvalue": encode_special_chars(row['catname'].strip()),  # for compare
-        }
-        catsArray.append(xrow)
-        catgens=row['catgenerics'].split(",")
-        for rgen in catgens:
-            rgen=rgen.strip()
-            if rgen!=row['catname'] and rgen!='':
-                xrow = {
-                    "catId": row['catId'],
-                    "catname": row['catname'],
-                    "catvalue": encode_special_chars(rgen),  # for compare
-                }
-                catsArray.append(xrow)
-        
-    catsArray.sort(key=lambda x: len(x["catvalue"]), reverse=True)
-    
-
-def convert_to_bootstrap_table(job_data):
-    table_html = '<table class="table table-bordered table-hover">'    
-    for field_name, field_value in job_data.items():
-        table_html += '<tr>'
-        table_html += f'<td>{field_name}</td>'
-        if len(str(field_value)) > 5000:
-            table_html += f'<td><textarea class="form-control" readonly>{field_value}</textarea></td>'
-        else:
-            table_html += f'<td>{field_value}</td>'
-        table_html += '</tr>'
-    table_html += '</table>'
-    #table_html=str(job_data)
-    return table_html
-
-def case_insensitive_word_exists(html_string, search_term):
-    # Convert the HTML string and search term to lowercase
-    html_lower = encode_special_chars(html_string.lower())
-    search_term_lower = search_term.lower()
-
-    # Use regular expression to find all words in the HTML string
-    words = re.findall(r'\b\w+\b', html_lower)
-    # Check if the case-insensitive word exists in the HTML string
-    exists = any(word == search_term_lower for word in words)
-    
-    return exists
-
-def remove_case_insensitive_word(html_string, search_term):
-    # Convert the HTML string and search term to lowercase
-    html_lower = encode_special_chars(html_string.lower())
-    search_term_lower = search_term.lower()
-
-    # Use regular expression to find all words in the HTML string
-    words = re.findall(r'\b\w+\b', html_lower)
-    # Find the occurrences of the search term in the list of words
-    occurrences = [i for i, word in enumerate(words) if word == search_term_lower]
-    # Loop through the occurrences in reverse order and remove the words from the HTML string
-    for index in reversed(occurrences):
-        start = html_string.lower().find(words[index])
-        end = start + len(words[index])
-        html_string = html_string[:start] + html_string[end:]
-
-    return html_string
-
-def findkeywords(html):
-    global catsArray
-    keywords=[]
-    for cat in catsArray:
-        if case_insensitive_word_exists(html, cat['catvalue'])==True:            
-           removeit=cat['catvalue'] 
-           cat['catvalue']=decode_special_chars(cat['catvalue'])
-           if cat not in keywords:
-              keywords.append(cat)
-           html = remove_case_insensitive_word(html,removeit)
-    return keywords
 
 @app.on_event("startup")
 async def startup_event():

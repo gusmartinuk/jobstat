@@ -1,3 +1,4 @@
+# this module is for fixes that one time run, update data, tests, etc.
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -12,19 +13,6 @@ parent_folder_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..
 sys.path.append(parent_folder_path)
  
 from config import *
-
-conn = pymysql.connect(
-        host=DATABASE_HOST,
-        user=DATABASE_USERNAME,
-        password=DATABASE_PASSWORD,
-        db=DATABASE_NAME,
-        charset='utf8mb4',
-        cursorclass=pymysql.cursors.DictCursor,
-        autocommit=True)
-
-cursor = conn.cursor()
-
-load_categories()
 
 def get_page(purl):
     pattern = re.compile(r'/jobs/.*/(.*)\?')
@@ -200,10 +188,11 @@ def get_page(purl):
 
 #xurl = 'https://www.reed.co.uk/jobs/work-from-home-python-jobs?pageno='
 #xurl = 'https://www.reed.co.uk/jobs/python-jobs?pageno='
-xurl = 'https://www.reed.co.uk/jobs/developer-jobs?pageno='   ## full scan
+#xurl = 'https://www.reed.co.uk/jobs/developer-jobs?pageno='   ## full scan
 #xurl = 'https://www.reed.co.uk/jobs/developer-jobs?dateCreatedOffSet=lastthreedays&pageno='
 #xurl = 'https://www.reed.co.uk/jobs/developer-jobs?dateCreatedOffSet=today&pageno='
-
+"""
+# scanning block 
 page=1
 while True:
     if page>1:
@@ -246,7 +235,53 @@ while True:
     page+=1
     if page>maxpage:
         break
+"""
 
+def update_skills(jobid,jobtitle,description,deleteolds=False):
+    skills=findkeywords(str(jobtitle)+" "+str(description))    
+    print(skills)
+    if deleteolds:  # delete old skills before recalculate
+        cursor.execute("delete from jobskills where jobid=%(jobid)s", {'jobid': jobid})
+        conn.commit()
+    query = """INSERT IGNORE INTO jobskills
+                (jobid,skillcatid)
+            VALUES 
+                (%(jobid)s, %(skillcatid)s)
+            ON DUPLICATE KEY UPDATE
+            skillcatid = VALUES(skillcatid)
+           """
+    for skill in skills:        
+        cursor.execute(query, {'jobid': jobid, 'skillcatid':skill['catId']})
+    conn.commit()
+
+
+
+def dbloop():
+    load_categories()
+    db = connect_to_db()
+    cursor = db.cursor(dictionary=True)  # Use dictionary cursor
+    #cursor.execute("SELECT jobid,title,description FROM jobs where title like '%c++%'")
+    #cursor.execute("SELECT jobid,title,description FROM jobs where jobid=50930180")
+    #cursor.execute("SELECT jobid,title,description FROM jobs") # full update
+    cursor.execute("SELECT jobs.jobid,title,description FROM jobs where title like '%drupal%' or title like '%wordpress%' or description like '%drupal%' or description like '%wordpress%'")
+    result = cursor.fetchall()        
+    for row in result:
+        xcatarray=catsArray.copy()
+        update_skills(row['jobid'],row['title'],row['description'],True)
+        print(row['jobid'],row['title'])
+        #break    
+
+conn = pymysql.connect(
+        host=DATABASE_HOST,
+        user=DATABASE_USERNAME,
+        password=DATABASE_PASSWORD,
+        db=DATABASE_NAME,
+        charset='utf8mb4',
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=True)
+cursor = conn.cursor()
+dbloop()
 cursor.close()
 conn.close()
+
         
