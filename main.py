@@ -43,9 +43,12 @@ async def startup_event():
 def get_top_skills():
     db = connect_to_db()
     cursor = db.cursor(dictionary=True)  # Use dictionary cursor
-    cursor.execute("SELECT `skill`, COUNT(`skill`) as `count` FROM `jobskills` GROUP BY `skill` ORDER BY `count` DESC LIMIT 10")
+    cursor.execute("""SELECT catgroup,catname,count(1) ads FROM categories 
+                        left outer join jobskills on catId=jobskills.skillcatId 
+                        left outer join jobs on jobskills.jobid=jobs.jobid 
+                        group by catgroup,catname order by count(1) desc""")
     result = cursor.fetchall()
-    df = pd.DataFrame(result, columns=['Skill', 'Count'])
+    df = pd.DataFrame(result, columns=['catgroup', 'catname','ads'])
     return df.to_dict(orient='records')
 
 @app.get("/average-salary")
@@ -61,12 +64,15 @@ def get_average_salary():
 def get_top_skills_plot():
     db = connect_to_db()
     cursor = db.cursor(dictionary=True)  # Use dictionary cursor
-    cursor.execute("SELECT `skill`, COUNT(`skill`) as `count` FROM `jobskills` GROUP BY `skill` ORDER BY `count` DESC LIMIT 10")
+    cursor.execute("""SELECT catgroup,catname,count(1) ads FROM categories 
+                        left outer join jobskills on catId=jobskills.skillcatId 
+                        left outer join jobs on jobskills.jobid=jobs.jobid 
+                        group by catgroup,catname order by count(1) desc""")
     result = cursor.fetchall()
-    df = pd.DataFrame(result, columns=['Skill', 'Count'])
+    df = pd.DataFrame(result, columns=['catgroup', 'catname','ads'])
 
     plt.figure(figsize=(10,6))
-    sns.barplot(x='Count', y='Skill', data=df)
+    sns.barplot(x='ads', y='catname', data=df)
     plt.title('Top 10 Skills')
     plt.savefig('static/top_skills.png')
     return {"filepath": "static/top_skills.png"}

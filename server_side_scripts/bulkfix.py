@@ -1,4 +1,5 @@
 # this module is for fixes that one time run, update data, tests, etc.
+# modify, update, tests, etc.
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -239,7 +240,7 @@ while True:
 
 def update_skills(jobid,jobtitle,description,deleteolds=False):
     skills=findkeywords(str(jobtitle)+" "+str(description))    
-    print(skills)
+    #print(skills)
     if deleteolds:  # delete old skills before recalculate
         cursor.execute("delete from jobskills where jobid=%(jobid)s", {'jobid': jobid})
         conn.commit()
@@ -262,8 +263,9 @@ def dbloop():
     cursor = db.cursor(dictionary=True)  # Use dictionary cursor
     #cursor.execute("SELECT jobid,title,description FROM jobs where title like '%c++%'")
     #cursor.execute("SELECT jobid,title,description FROM jobs where jobid=50930180")
-    #cursor.execute("SELECT jobid,title,description FROM jobs") # full update
-    cursor.execute("SELECT jobs.jobid,title,description FROM jobs where title like '%drupal%' or title like '%wordpress%' or description like '%drupal%' or description like '%wordpress%'")
+    #cursor.execute("SELECT jobs.jobid,title,description FROM jobs where title like '%drupal%' or title like '%wordpress%' or description like '%drupal%' or description like '%wordpress%'")
+    #cursor.execute("SELECT jobs.jobid,title,description FROM jobs where title like '%sql%' or title like '%sql%'")
+    cursor.execute("SELECT jobid,title,description FROM jobs") # full update periodic run will be nice
     result = cursor.fetchall()        
     for row in result:
         xcatarray=catsArray.copy()
