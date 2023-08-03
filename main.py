@@ -8,6 +8,7 @@ import seaborn as sns
 import json
 import uvicorn
 from config import *
+from report import *
 import time
 import random
 
@@ -109,6 +110,19 @@ async def keywords(request: Request):
     execution_time = end_time - start_time
     content += f"Function took {execution_time:.6f} seconds to execute."    
     return templates.TemplateResponse("home.html", {"request": request, "pagename": pagename, "content": content})
+
+
+@app.get("/rap", response_class=HTMLResponse)
+async def keywords(request: Request):
+    start_time = time.time()
+    pagename = "Report"
+    content =  active_posts_skills()
+    end_time = time.time()
+    # Calculate the time taken
+    execution_time = end_time - start_time
+    content += f"Function took {execution_time:.6f} seconds to execute."    
+    return templates.TemplateResponse("home.html", {"request": request, "pagename": pagename, "content": content})
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
