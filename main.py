@@ -123,6 +123,17 @@ async def keywords(request: Request):
     content += f"Function took {execution_time:.6f} seconds to execute."    
     return templates.TemplateResponse("home.html", {"request": request, "pagename": pagename, "content": content})
 
+@app.get("/matrix", response_class=HTMLResponse)
+async def keywords(request: Request):
+    start_time = time.time()
+    pagename = "Matrix Report"
+    content =  active_posts_skills_matrix()
+    end_time = time.time()
+    # Calculate the time taken
+    execution_time = end_time - start_time
+    content += f"Function took {execution_time:.6f} seconds to execute."    
+    return templates.TemplateResponse("home.html", {"request": request, "pagename": pagename, "content": content})
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
