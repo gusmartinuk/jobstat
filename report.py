@@ -237,7 +237,7 @@ def active_posts_skills_matrix():
     content='<div class="d-flex flex-wrap bg-light justify-content-center">'
     # Calculate the most preferred double skills
     cnt=3
-    while cnt<6:
+    while cnt<7:
         qskills = df['skillset'].apply(lambda x: list(combinations(x, cnt))).explode().value_counts().head(50)
         skills_table = generate_html_table(qskills, "Most Preferred "+str(cnt)+" Skills")
         content+='<div style="padding: 5px;">'+skills_table+'</div>'
