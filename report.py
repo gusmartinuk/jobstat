@@ -36,10 +36,11 @@ WHERE
                         AND not title like '%Branch Manager%'
                         AND not title like '%tranie%'
                         AND not title like '%apprentice%'
+                        AND hrcompany<>'Noir'
                         """
 
-groupqry="""select catname 'Skill',round(avg(averagesalary),0) 'Average Salary £',count(1) 'Active Ads' from (
-                select catname,round((jobs.salarymin+jobs.salarymax)/2,0) averagesalary from jobskills 
+groupqry="""select catId,catname 'Skill',round(avg(averagesalary),0) 'Average Salary £',count(1) 'Active Ads' from (
+                select catId,catname,round((jobs.salarymin+jobs.salarymax)/2,0) averagesalary from jobskills 
                 left outer join categories on jobskills.skillcatId=categories.catId
                 left outer join jobs on jobskills.jobid=jobs.jobid
                 WHERE
@@ -74,6 +75,7 @@ groupqry="""select catname 'Skill',round(avg(averagesalary),0) 'Average Salary �
                                         AND not title like '%tranie%'
                                         AND not title like '%apprentice%'
                                         AND catgroup=%(catgroup)s
+                                        AND hrcompany<>'Noir'
                     ) zzz group by catname order by count(1) desc"""
 
 activejobmatrixqry="""select jobs.jobid, GROUP_CONCAT(skillcatId) skillset,count(1) from jobs
@@ -85,7 +87,7 @@ activejobmatrixqry="""select jobs.jobid, GROUP_CONCAT(skillcatId) skillset,count
                                         AND jobs.salarymin*3>jobs.salarymax
                                         AND jobs.datevalid > CURRENT_DATE
                                         AND jobs.currency="GBP"
-                                        AND EXISTS(select jobid from jobskills where jobs.jobid=jobskills.jobid limit 1)
+                                        AND EXISTS(select jobid from jobskills where jobs.jobid=jobskills.jobid and jobskills.skillcatId=%(skillcatid)s limit 1)
                                         AND jobs.address_country="GB"
                                         AND not title like '%property%'
                                         AND not title like '%construction%'
@@ -109,6 +111,8 @@ activejobmatrixqry="""select jobs.jobid, GROUP_CONCAT(skillcatId) skillset,count
                                         AND not title like '%Branch Manager%'
                                         AND not title like '%tranie%'
                                         AND not title like '%apprentice%'                                        
+                                        AND jobskills.skillcatId<>%(skillcatid)s
+                                        AND hrcompany<>'Noir'
 group by jobs.jobid order by count(1) desc"""
 
 top10qry="""
@@ -151,6 +155,7 @@ WHERE
                         AND not title like '%Branch Manager%'
                         AND not title like '%tranie%'
                         AND not title like '%apprentice%'
+                        AND hrcompany<>'Noir'
 group by catname
 order by count(1) desc
 ) zzz where catgroup=%(catgroup)s limit 10
@@ -203,11 +208,11 @@ def get_skill_names(skills):
     return(result['xcats'])
 
 def generate_html_table(data, table_title):
-    table_html = f'<table class="table table-bordered table-hover"><caption>{table_title}</caption>'
+    table_html = f'<h4>{table_title}</h4><table class="table table-bordered table-hover">'
     table_html += '<tr><th>Skills</th><th>Count</th></tr>'
     for index, count in data.items():
         skills = ', '.join(index)
-        skills = get_skill_names(skills)        
+        skills = get_skill_names(skills).replace(",",", ")
         table_html += f'<tr><td>{skills}</td><td>{count}</td></tr>'
     table_html += '</table>'
     return table_html
@@ -215,32 +220,23 @@ def generate_html_table(data, table_title):
 def active_posts_skills_matrix():
     db = connect_to_db()
     cursor = db.cursor(dictionary=True)  # Use dictionary cursor
-    cursor.execute("select distinct catgroup from categories")
-    groups=cursor.fetchall()
-    for group in groups:      
-        cursor.execute(top10qry,{"catgroup":group['catgroup']})
-        result=cursor.fetchone()
-        
-        #top 10 from each group and combine and limit the .NET dominancy
-
-
-
-    
-    cursor.execute(activejobmatrixqry)
-    result=cursor.fetchall()
-    df = pd.DataFrame(result, columns=['jobid', 'skillset'])
-
-    # Assuming you have a DataFrame named 'df' with columns 'jobid' and 'skillset'
-    # Convert the 'skillset' column from comma-separated strings to lists of skill ids
-    df['skillset'] = df['skillset'].apply(lambda x: x.split(','))
-
-    content='<div class="d-flex flex-wrap bg-light justify-content-center">'
-    # Calculate the most preferred double skills
-    cnt=3
-    while cnt<7:
-        qskills = df['skillset'].apply(lambda x: list(combinations(x, cnt))).explode().value_counts().head(50)
-        skills_table = generate_html_table(qskills, "Most Preferred "+str(cnt)+" Skills")
-        content+='<div style="padding: 5px;">'+skills_table+'</div>'
-        cnt+=1
+    cursor.execute(groupqry+' limit 10',{"catgroup":'Language'})
+    topresult=cursor.fetchall()
+    content='<h2>Comparative Popularity: Programming Languages & Other Key Skills</h2>'
+    content+='<div class="d-flex flex-wrap bg-light justify-content-center">'
+    for row in topresult:
+        cursor.execute(activejobmatrixqry,{'skillcatid': row['catId']}) 
+        result=cursor.fetchall()
+        df = pd.DataFrame(result, columns=['jobid', 'skillset'])
+        # Assuming you have a DataFrame named 'df' with columns 'jobid' and 'skillset'
+        # Convert the 'skillset' column from comma-separated strings to lists of skill ids
+        df['skillset'] = df['skillset'].apply(lambda x: x.split(','))
+        # Calculate the most preferred double skills
+        cnt=3
+        while cnt<4:
+            qskills = df['skillset'].apply(lambda x: list(combinations(x, cnt))).explode().value_counts().head(10)
+            skills_table = generate_html_table(qskills, row['Skill']+" with ...")
+            content+='<div style="padding: 5px;">'+skills_table+'</div>'
+            cnt+=1
     content+='</div>'
     return content

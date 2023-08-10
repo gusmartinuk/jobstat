@@ -20,10 +20,10 @@ def connect_to_db():
 
 
 def encode_special_chars(xstr):
-    return xstr.replace("#","1ozo1").replace("+","2ozo2").replace("++","3ozo3")
+    return xstr.replace("#","1ozo1").replace("+","2ozo2").replace("++","3ozo3").replace(".","4ozo4")
 
 def decode_special_chars(xstr):
-    return xstr.replace("1ozo1","#").replace("2ozo2","+").replace("3ozo3","++")
+    return xstr.replace("1ozo1","#").replace("2ozo2","+").replace("3ozo3","++").replace("4ozo4",".")
       
 
 def load_categories():
